@@ -1,55 +1,76 @@
-const CACHE_NAME = 'Country-guess-cache-v1';
-const urlsToCache = [
+const CACHE_NAME = 'country-guess-v1';
+const PRECACHE_URLS = [
   '/',
+  '/manifest.json',
   '/icon-192x192.png',
   '/icon-512x512.png',
-  '/manifest.json',
   '/sound/Clap%20BGM.mp3',
-  '/sound/x%20BGM.mp3',
-  '/file.svg',
-  '/globe.svg',
-  '/window.svg',
-  '/_next/static/css/app/layout.css',
-  '/_next/static/chunks/webpack.js',
-  '/_next/static/chunks/main-app.js',
-  '/_next/static/chunks/app-pages-internals.js',
-  '/_next/static/chunks/app/layout.js',
-  '/_next/static/chunks/app/page.js'
+  '/sound/x%20BGM.mp3'
 ];
 
 self.addEventListener('install', (event) => {
+  self.skipWaiting();
   event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then((cache) => {
-        console.log('Opened cache');
-        return cache.addAll(urlsToCache);
-      })
-  );
-});
-
-self.addEventListener('fetch', (event) => {
-  event.respondWith(
-    caches.match(event.request)
-      .then((response) => {
-        if (response) {
-          return response;
-        }
-        return fetch(event.request);
-      })
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(PRECACHE_URLS))
   );
 });
 
 self.addEventListener('activate', (event) => {
-  const cacheWhitelist = [CACHE_NAME];
   event.waitUntil(
-    caches.keys().then((cacheNames) => {
-      return Promise.all(
-        cacheNames.map((cacheName) => {
-          if (cacheWhitelist.indexOf(cacheName) === -1) {
-            return caches.delete(cacheName);
-          }
-        })
-      );
-    })
+    (async () => {
+      const keys = await caches.keys();
+      await Promise.all(keys.map((key) => key !== CACHE_NAME && caches.delete(key)));
+      await self.clients.claim();
+    })()
+  );
+});
+
+self.addEventListener('fetch', (event) => {
+  const { request } = event;
+  if (request.method !== 'GET') return; // POST 등은 제외
+  const url = new URL(request.url);
+
+  // 이미지(국기 포함) 또는 사운드는 Cache First
+  const isImage = request.destination === 'image' || url.pathname.startsWith('/nation') || url.pathname.startsWith('/Nation');
+  const isSound = url.pathname.startsWith('/sound/');
+
+  if (isImage || isSound) {
+    event.respondWith(
+      (async () => {
+        const cached = await caches.match(request);
+        if (cached) return cached;
+        try {
+          const resp = await fetch(request);
+          const cache = await caches.open(CACHE_NAME);
+          cache.put(request, resp.clone());
+          return resp;
+        } catch (e) {
+          // 이미지/사운드 실패 시 캐시 fallback (없으면 실패)
+          return cached || Response.error();
+        }
+      })()
+    );
+    return;
+  }
+
+  // 그 외는 Network First
+  event.respondWith(
+    (async () => {
+      try {
+        const resp = await fetch(request);
+        const cache = await caches.open(CACHE_NAME);
+        cache.put(request, resp.clone());
+        return resp;
+      } catch (e) {
+        const cached = await caches.match(request);
+        if (cached) return cached;
+        // 네비게이션 요청이면 홈으로 fallback
+        if (request.mode === 'navigate') {
+          const home = await caches.match('/');
+          if (home) return home;
+        }
+        return Response.error();
+      }
+    })()
   );
 });

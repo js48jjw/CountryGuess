@@ -5,6 +5,7 @@ import Script from "next/script";
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   const [isMobile, setIsMobile] = useState(false);
+  // const [swReady, setSwReady] = useState(false);
 
   useEffect(() => {
     const handleResize = () => {
@@ -16,11 +17,39 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  // PWA Service Worker 등록
+  useEffect(() => {
+    if ('serviceWorker' in navigator) {
+      const register = async () => {
+        try {
+          const reg = await navigator.serviceWorker.register('/service-worker.js');
+          // 업데이트 있으면 즉시 적용
+          if (reg.waiting) reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+          reg.addEventListener('updatefound', () => {
+            const installing = reg.installing;
+            if (!installing) return;
+            installing.addEventListener('statechange', () => {
+              if (installing.state === 'installed' && navigator.serviceWorker.controller) {
+                reg.waiting?.postMessage({ type: 'SKIP_WAITING' });
+              }
+            });
+          });
+        } catch (e) {
+          console.warn('SW register failed', e);
+        }
+      };
+      register();
+    }
+  }, []);
   return (
     <html lang="ko">
       <head>
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <meta name="theme-color" content="#2563eb" />
+        <link rel="apple-touch-icon" href="/icon-192x192.png" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <title>나라를 맞춰라!</title>
         <link rel="manifest" href="/manifest.json" />
       </head>

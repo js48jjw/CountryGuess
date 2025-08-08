@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import Image from "next/image";
 import { buildFlagUrl } from "../lib/countryData";
 
 interface FlagImageProps {
@@ -57,10 +58,14 @@ const FlagImage: React.FC<FlagImageProps> = ({ iso2 }) => {
   );
 
   return (
-    <img
+    <Image
       src={src}
       alt={`${iso2} flag`}
+      width={360}
+      height={220}
+      sizes="(max-width: 640px) 280px, 360px"
       className="w-[280px] h-[180px] sm:w-[360px] sm:h-[220px] object-contain rounded-lg shadow"
+      priority
     />
   );
 };

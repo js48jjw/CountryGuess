@@ -198,7 +198,6 @@ export default function HomePage() {
                   onChange={e => setGuessValue(e.target.value)}
                   className="w-56 px-4 py-2 rounded-lg border border-emerald-300 dark:border-emerald-600 bg-white dark:bg-gray-800 text-2xl text-center tracking-widest font-mono focus:outline-none focus:ring-2 focus:ring-emerald-400 dark:focus:ring-emerald-700 transition-all"
                   placeholder="국가명/영문"
-                  autoFocus
                 />
                 <button
                   type="submit"
